@@ -5,20 +5,28 @@ const mocks = vi.hoisted(() => {
   const interval = vi.fn();
   const githubSkillSyncRef = Symbol("github-skill-source-sync");
   const installTelemetryDedupePruneRef = Symbol("install-telemetry-dedupe-prune");
+  const publisherAbuseAutobanRef = Symbol("publisher-abuse-autobans");
+  const publisherAbuseScoreRefreshRef = Symbol("publisher-abuse-score-refresh");
+  const publisherTemporalAbuseScanRef = Symbol("publisher-temporal-abuse-scan");
   const httpRateLimitKeysPruneRef = Symbol("http-rate-limit-keys-prune");
   const skillStatEventPruneRef = Symbol("skill-stat-event-prune");
   const packageStatEventPruneRef = Symbol("package-stat-event-prune");
   const authSessionsPruneRef = Symbol("auth-sessions-prune");
   const authRefreshTokensPruneRef = Symbol("auth-refresh-tokens-prune");
+  const publisherInvitesPruneRef = Symbol("publisher-invites-prune");
   return {
     interval,
     githubSkillSyncRef,
     installTelemetryDedupePruneRef,
+    publisherAbuseAutobanRef,
+    publisherAbuseScoreRefreshRef,
+    publisherTemporalAbuseScanRef,
     httpRateLimitKeysPruneRef,
     skillStatEventPruneRef,
     packageStatEventPruneRef,
     authSessionsPruneRef,
     authRefreshTokensPruneRef,
+    publisherInvitesPruneRef,
   };
 });
 
@@ -51,7 +59,9 @@ vi.mock("./_generated/api", () => ({
       backfillPackageReleaseScansInternal: Symbol("package-scan-backfill"),
     },
     publisherAbuse: {
-      runPublisherAbuseScoreRunInternal: Symbol("publisher-abuse-score-refresh"),
+      runPublisherAbuseScoreRunInternal: mocks.publisherAbuseScoreRefreshRef,
+      runTemporalPublisherAbuseScanInternal: mocks.publisherTemporalAbuseScanRef,
+      processPublisherAbuseAutobansInternal: mocks.publisherAbuseAutobanRef,
     },
     vt: {
       pollPendingScans: Symbol("vt-pending-scans"),
@@ -72,6 +82,7 @@ vi.mock("./_generated/api", () => ({
     retention: {
       pruneExpiredAuthSessionsInternal: mocks.authSessionsPruneRef,
       pruneExpiredAuthRefreshTokensInternal: mocks.authRefreshTokensPruneRef,
+      pruneExpiredPublisherInvitesInternal: mocks.publisherInvitesPruneRef,
     },
   },
 }));
@@ -128,6 +139,43 @@ describe("crons", () => {
     );
   });
 
+  it("registers publisher abuse cron jobs", async () => {
+    await import("./crons");
+
+    expect(mocks.interval).toHaveBeenCalledWith(
+      "publisher-abuse-score-refresh",
+      { hours: 24 },
+      mocks.publisherAbuseScoreRefreshRef,
+      {
+        batchSize: 250,
+        maxPages: 5,
+        trigger: "cron",
+      },
+    );
+    expect(mocks.interval).toHaveBeenCalledWith(
+      "publisher-temporal-abuse-scan",
+      { hours: 24 },
+      mocks.publisherTemporalAbuseScanRef,
+      {
+        mode: "current",
+        dryRun: true,
+        candidateLimit: 1_000,
+        batchSize: 50,
+        maxPages: 20,
+        trigger: "cron",
+      },
+    );
+    expect(mocks.interval).toHaveBeenCalledWith(
+      "publisher-abuse-autobans",
+      { hours: 24 },
+      mocks.publisherAbuseAutobanRef,
+      {
+        batchSize: 1,
+        maxPages: 50,
+      },
+    );
+  });
+
   it("prunes stale component HTTP rate limit keys hourly", async () => {
     await import("./crons");
 
@@ -152,6 +200,17 @@ describe("crons", () => {
       "auth-refresh-token-retention-prune",
       { hours: 6 },
       mocks.authRefreshTokensPruneRef,
+      { batchSize: 500 },
+    );
+  });
+
+  it("prunes expired publisher invites with the standard batch size", async () => {
+    await import("./crons");
+
+    expect(mocks.interval).toHaveBeenCalledWith(
+      "publisher-invite-retention-prune",
+      { hours: 6 },
+      mocks.publisherInvitesPruneRef,
       { batchSize: 500 },
     );
   });

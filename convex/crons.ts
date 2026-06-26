@@ -110,12 +110,19 @@ if (process.env.CLAWHUB_DISABLE_CRONS !== "1") {
     internal.publisherAbuse.runTemporalPublisherAbuseScanInternal,
     {
       mode: "current",
-      dryRun: false,
-      candidateLimit: 1000,
+      dryRun: true,
+      candidateLimit: 1_000,
       batchSize: 50,
       maxPages: 20,
       trigger: "cron",
     },
+  );
+
+  crons.interval(
+    "publisher-abuse-autobans",
+    { hours: 24 },
+    internal.publisherAbuse.processPublisherAbuseAutobansInternal,
+    { batchSize: 1, maxPages: 50 },
   );
 
   crons.interval("vt-pending-scans", { minutes: 5 }, internal.vt.pollPendingScans, {
@@ -165,6 +172,13 @@ if (process.env.CLAWHUB_DISABLE_CRONS !== "1") {
     "auth-refresh-token-retention-prune",
     { hours: 6 },
     internal.retention.pruneExpiredAuthRefreshTokensInternal,
+    { batchSize: RETENTION_STANDARD_BATCH_SIZE },
+  );
+
+  crons.interval(
+    "publisher-invite-retention-prune",
+    { hours: 6 },
+    internal.retention.pruneExpiredPublisherInvitesInternal,
     { batchSize: RETENTION_STANDARD_BATCH_SIZE },
   );
 

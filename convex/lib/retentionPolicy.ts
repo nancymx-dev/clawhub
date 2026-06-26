@@ -87,6 +87,12 @@ export const RETENTION_POLICIES = {
   }),
   publishers: permanent("Canonical publisher profiles."),
   publisherMembers: permanent("Canonical publisher membership records."),
+  publisherInvites: ephemeral("Organization member invitations expire if they are not accepted.", {
+    expirationField: "expiresAt",
+    expirationIndex: "by_expires_at",
+    prune: "retention.pruneExpiredPublisherInvitesInternal",
+    retention: "Organization invitation TTL.",
+  }),
   publisherImageUploadTickets: ephemeral(
     "Organization logo upload tickets expire shortly after creation.",
     {
@@ -192,6 +198,7 @@ export const RETENTION_POLICIES = {
   catalogFeedPublications: permanent("Current published hosted catalog feed snapshot."),
   stars: permanent("User star records."),
   auditLogs: permanent("Audit logs are durable compliance/security history."),
+  systemSettings: permanent("Durable operator-controlled system settings."),
   publisherAbuseScoreRuns: permanent("Abuse scoring run history."),
   publisherAbuseScores: permanent("Abuse score history used for review decisions."),
   publisherAbuseReviewNominations: permanent("Abuse review workflow state."),
